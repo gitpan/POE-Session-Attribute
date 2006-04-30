@@ -1,0 +1,8 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/all.t
+lib/POE/Session/Attribute.pm
+eg/demo.pl
+META.yml                                 Module meta-data (added by MakeMaker)
