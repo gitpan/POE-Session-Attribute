@@ -3,24 +3,50 @@ package POE::Session::Attribute ;
 use strict ;
 use warnings ;
 
-use	base qw(Class::Data::Inheritable) ;
 use	POE qw(Session) ;
-use	Class::Inspector ;
+use	Attribute::Handlers ;
+use	Class::ISA ;
 
-__PACKAGE__->mk_classdata(qw(states)) ;
-__PACKAGE__->states({}) ;
+our $VERSION = '0.02';
 
-our $VERSION = '0.01';
+my	$states = {} ;
 
-sub	MODIFY_CODE_ATTRIBUTES {
-    	my	($class, $code, $attr, @rest) = @_ ;
-	$class->states->{$code} = $attr ;
-	return (@rest) ;
+sub	Object : ATTR(CODE) { shift->__mod_attr(@_) }
+sub	Package : ATTR(CODE) { shift->__mod_attr(@_) }
+sub	Inline : ATTR(CODE) { shift->__mod_attr(@_) }
+
+sub	__pkg_states {
+    	my	$pkg = shift ;
+	my	$st = $states->{$pkg} ;
+
+	if (!$st) {
+	    $st = {} ;
+	    for (Class::ISA::super_path($pkg)) {
+		if (my $pst = $states->{$_}) {
+		    $st = { %$pst } ;
+		    last ;
+		}
+	    }
+	    $states->{$pkg} = $st ;
+	}
+	return $st ;
 }
 
-sub	FETCH_CODE_ATTRIBUTES {
-    	my	($self, $code) = @_ ;
-	return ($self->states->{$code}) || () ;
+sub	__mod_attr {
+	my	($pkg, $sym, $sub, $attr, $data, $phase) = @_ ;
+	my	$handler = $sym ? *{$sym}{NAME} : $sub ;
+	my	@states ;
+
+	if ($data) {
+	    @states = ref($data) eq 'ARRAY' ? (@$data) : ($data) ;
+	} else {
+	    @states = (*{$sym}{NAME}) or die 'cannot determine state name' ;
+	}
+
+	die "cannot use unnamed $sub as $attr state"
+	    if $attr ne 'Inline' && !$sym ;
+	
+	$pkg->__pkg_states->{$_} = [$attr, $handler] for @states ;
 }
 
 sub	new {
@@ -31,26 +57,31 @@ sub	new {
 sub	spawn {
 	my      $class = shift ;
 	my	$self ;
-	my	$methods = Class::Inspector->methods($class) ;
 	my	%opts ;
 
-	for my $m (@$methods) {
-	    my $sub = $class->can($m) or next ;
-	    my $attr = $class->states->{$sub} or next ;
+	while (my ($state, $ar) = each %{$class->__pkg_states}) {
+	    my ($attr, $handler) = @$ar ;
+
 	    if ($attr eq "Inline") {
-		($opts{inline_states} ||= {})->{$m} = $sub ;
+
+		if (!ref($handler)) {
+		    $handler = $class->can($handler) or
+			die "$class can't `$handler'"
+		}
+		($opts{inline_states} ||= {})->{$state} = $handler ;
 	    } elsif ($attr eq "Object") {
 		my $t = ($opts{object_states} ||= [
-			($self ||= $class->new(@_)) => []
+			($self ||= $class->new(@_)) => {}
 		]) ;
-		push @{$t->[1]}, $m ;
+		$t->[1]->{$state} = $handler ;
 	    } elsif ($attr eq "Package") {
-		my $t = ($opts{package_states} ||= [$class => []]) ;
-		push @{$t->[1]}, $m ;
+		my $t = ($opts{package_states} ||= [$class => {}]) ;
+		$t->[1]->{$state} = $handler ;
 	    } else {
-		die "unknown attribute `$attr' for method $class -> $m" ;
+		die "unknown attribute `$attr' for method $class -> $handler" ;
 	    }
 	}
+
 	$opts{args} = [ @_ ] ;
 	my $sid = POE::Session->create(%opts) ;
 	return (wantarray && $self) ? ($sid, $self) : $sid ;
@@ -79,7 +110,7 @@ POE::Session::Attribute - Use attributes to define your POE Sessions
       ...
   }
 
-  sub _stop : Object {     # object state
+  sub stop : Object(_stop) {     # object state, explicit state name
       my ($self, ...) = @_[OBJECT, ...] ;
       ...
   }
@@ -124,18 +155,29 @@ This module's purpose is to save you some boilerplate code around POE::Session->
 
 =item sub your_sub : B<Package>
 
-Makes a package state. Name of your subroutine ("your_sub") will be used as
-state name.
+=item sub your_sub : B<Package(name, more_names, ...)>
+
+Makes a package state. If C<name> is specified, it will be used as a state
+name. You can specify several names here. Otherwise, the name of your
+subroutine ("your_sub") will be used as state name.
 
 =item sub your_sub : B<Inline>
 
-Makes an inline state. Name of your subroutine ("your_sub") will be used as
-state name.
+=item sub your_sub : B<Inline(name, more_names, ...)>
+
+Makes an inline state. If C<name> is specified, it will be used as a state
+name. You can specify several names here. Otherwise, the name of your
+subroutine ("your_sub") will be used as state name.
 
 =item sub your_sub : B<Object>
 
-Makes an object state. Name of your subroutine ("your_sub") will be used as
-state name. An instance of your class will be created by C<spawn()> method,
+=item sub your_sub : B<Object(name, more_names, ...)>
+
+Makes an object state. If C<name> is specified, it will be used as a state
+name. You can specify several names here. Otherwise, the name of your
+subroutine ("your_sub") will be used as state name.
+
+An instance of your class will be created by C<spawn()> method,
 if at least one B<Object> state is defined in your package. Method C<new()>
 from your package will be called to create the instance. Arguments for the
 call to C<new()> will be the same as specified for C<spawn()> call.
@@ -172,7 +214,7 @@ There is a somewhat similar module on CPAN, L<POE::Session::AttributeBased>.
 
 =head1 AUTHOR
 
-dmitry kim, E<lt>dmitry.kim@gmail.comE<gt>
+dmitry kim, E<lt>dmitry.kim(at)gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 

@@ -17,8 +17,6 @@ DEPENDENCIES
 This module requires these other modules and libraries:
 
   POE
-  Class::Inspector
-  Class::Data::Inheritable
 
 not tested and probably will not work with perl version < 5.8
 

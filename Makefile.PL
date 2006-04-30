@@ -5,10 +5,11 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME              => 'POE::Session::Attribute',
     VERSION_FROM      => 'lib/POE/Session/Attribute.pm', # finds $VERSION
+    NO_META	      => 1,
     PREREQ_PM         => {
         POE => 0,
-	'Class::Data::Inheritable' => 0,
-	'Class::Inspector' => 0
+	'Attribute::Handlers' => 0,
+	'Class::ISA' => 0,
     }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/POE/Session/Attribute.pm', # retrieve abstract from module

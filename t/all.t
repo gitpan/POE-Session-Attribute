@@ -1,4 +1,4 @@
-use Test::More tests => 16 ;
+use Test::More tests => 18 ;
 
 package	PSATest ;
 
@@ -13,7 +13,7 @@ sub	new {
 	return bless {cnt => shift}, $class ;
 }
 
-sub	_start : Package {
+sub	start : Package(_start) {
     	my	($class, $poe) = @_[OBJECT, KERNEL] ;
     	main::ok(!ref($class) && $class->isa(__PACKAGE__), "_start : Package") ;
 	$poe->delay('tick', 1) ;
@@ -36,9 +36,9 @@ package	PSATest::Subclass ;
 use base qw(PSATest) ;
 use POE ;
 
-sub	tick : Object {
+sub	t_ick : Object(tick) {
     	my ($self, @rest) = @_[OBJECT .. $#_] ;
-    	main::diag("overriden") ;
+	main::ok(1, 'overriden tick') ;
 	$self->SUPER::tick(@rest) ;
 }
 
