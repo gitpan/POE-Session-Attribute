@@ -8,8 +8,10 @@ WriteMakefile(
     NO_META	      => 1,
     PREREQ_PM         => {
         POE => 0,
-	'Attribute::Handlers' => 0,
-	'Class::ISA' => 0,
+# do we really need these ones? they are in perl-core now
+#	'Attribute::Handlers' => 0,
+#	'Class::ISA' => 0,
+#	'Carp' => 0,
     }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/POE/Session/Attribute.pm', # retrieve abstract from module
